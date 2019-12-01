@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="portfolio.board">
+
+	<!-- 검색어 -->
+	<sql id="search">
+		<where>
+			<choose>
+				<when test='"1" == searchDiv'>
+					 TITLE LIKE CONCAT('%' , #{searchWord, jdbcType=VARCHAR} , '%')
+					 AND (<![CDATA[@rownum]]>:=0)=0
+				</when>
+				<when test='"2" == searchDiv'>
+					 USER_ID LIKE CONCAT('%' , #{searchWord, jdbcType=VARCHAR} , '%')
+					 AND (<![CDATA[@rownum]]>:=0)=0
+				</when>
+				<when test='"3" == searchDiv'>
+					 CONTENTS LIKE CONCAT('%' , #{searchWord, jdbcType=VARCHAR} , '%')
+					 AND (<![CDATA[@rownum]]>:=0)=0
+				</when>
+				<when test='"4" == searchDiv'>
+					 USER_ID LIKE CONCAT('%' , #{searchWord, jdbcType=VARCHAR} , '%')
+					 AND (<![CDATA[@rownum]]>:=0)=0
+				</when>
+				<otherwise>(<![CDATA[@rownum]]>:=0)=0</otherwise>
+			</choose>
+		</where>
+	</sql>
+	 
+	<delete id="do_delete" parameterType="Board">
+		DELETE FROM PF_BOARD
+		WHERE POST_NUM = #{postNum, jdbcType=NUMERIC}
+	</delete>
+	
+	<select id="get_selectOne" parameterType="Board" resultType="Board">
+		SELECT
+			DIV_NM as divNm
+		    ,TITLE as title
+		    ,USER_ID as userId
+		    ,CONTENTS as contents
+			,REG_DT as regDt
+			,CNT as cnt
+			,POST_NUM as postNum
+		FROM
+		    PF_BOARD
+		WHERE
+		    POST_NUM = #{postNum, jdbcType=NUMERIC}
+	</select>
+	 
+	<select id="do_save" parameterType="Board">
+		INSERT INTO PF_BOARD (
+		    DIV_NM
+		    ,TITLE
+		    ,USER_ID
+		    ,CONTENTS
+			,REG_DT
+			,CNT
+			,PW
+		) VALUES (
+		    #{divNm, jdbcType=VARCHAR}
+		    ,#{title, jdbcType=VARCHAR}
+		    ,#{userId, jdbcType=VARCHAR}
+		    ,#{contents, jdbcType=VARCHAR}
+		    ,NOW()
+		    ,0
+		    ,#{password, jdbcType=VARCHAR}
+		)
+	</select>
+	
+	<select id="get_retrieve" parameterType="Search" resultType="Board">
+		SELECT TT1.*, TT2.commentCnt
+		FROM
+		(
+			SELECT T1.*, T2.*, (T2.TotalCnt - T1.RNUM +1) as num
+			FROM(
+			SELECT 
+				T.DIV_NM as divNm
+			    ,T.TITLE as title
+			    ,T.USER_ID as userId
+			    ,T.CONTENTS as contents
+				,CASE DATE_FORMAT(T.REG_DT, '%Y-%m-%d') WHEN DATE_FORMAT(NOW(), '%Y-%m-%d')
+					THEN DATE_FORMAT(T.REG_DT, '%H:%i:%s')
+	            	ELSE DATE_FORMAT(T.REG_DT, '%Y-%m-%d') END AS regDt
+				,T.CNT as cnt
+				,T.RNUM as rnum
+				,T.POST_NUM as postNum
+				,T.NOTICE as notice
+			FROM(
+			    SELECT <![CDATA[@rownum]]>:=<![CDATA[@rownum]]>+1 AS RNUM, A.*
+			    FROM(
+			         SELECT *
+			         FROM PF_BOARD
+			         <include refid="search"/>
+			         ORDER BY NOTICE ASC, REG_DT DESC
+			        )A
+			    )T
+			     WHERE CEIL(T.RNUM/ #{pageSize, jdbcType=VARCHAR} ) = #{pageNum, jdbcType=VARCHAR}
+			ORDER BY rnum
+			)T1 JOIN(
+			SELECT COUNT(*) as TotalCnt
+			FROM(
+				SELECT *
+			    FROM PF_BOARD
+			    <include refid="search"/>
+			    )B
+			)T2
+		) TT1 LEFT OUTER JOIN(
+			SELECT A.POST_NUM, COUNT(A.POST_NUM) as commentCnt
+			FROM PF_BOARD A JOIN(
+			SELECT *
+			FROM PF_BOARD_COMMENT
+			)B
+			ON A.POST_NUM = B.POST_NUM
+			group by POST_NUM
+		) TT2
+		ON TT1.postNum = TT2.POST_NUM
+	</select>
+
+	<update id="do_update" parameterType="Board">
+		UPDATE PF_BOARD
+		SET
+			TITLE = #{title, jdbcType=VARCHAR}
+			,DIV_NM = #{divNm, jdbcType=VARCHAR}
+			,CONTENTS = #{contents, jdbcType=VARCHAR}
+			,PW = #{password, jdbcType=VARCHAR}
+		WHERE POST_NUM = #{postNum, jdbcType=NUMERIC}
+	</update>
+	
+	<select id="get_password" parameterType="Board" resultType="Board">
+		SELECT
+			PW as password
+		FROM
+		    PF_BOARD
+		WHERE
+		    POST_NUM = #{postNum, jdbcType=NUMERIC}
+	</select>
+	
+	<update id="do_cntHit" parameterType="Board">
+		UPDATE PF_BOARD
+		SET
+			CNT = CNT + 1
+		WHERE POST_NUM = #{postNum, jdbcType=NUMERIC}
+	</update>
+</mapper>

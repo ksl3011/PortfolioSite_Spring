@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="portfolio.comment">
+
+	<!-- 검색어 -->
+	<sql id="search">
+		<where>
+			<choose>
+				<when test='"1" == searchDiv'>
+					 POST_NUM LIKE #{searchWord, jdbcType=VARCHAR}
+					 AND (<![CDATA[@rownum]]>:=0)=0
+				</when>
+				<otherwise>(<![CDATA[@rownum]]>:=0)=0</otherwise>
+			</choose>
+		</where>
+	</sql>
+	 
+	<delete id="do_delete" parameterType="Comment">
+		DELETE FROM PF_BOARD_COMMENT
+		WHERE POST_NUM = #{postNum, jdbcType=NUMERIC}
+		AND COMMENT_NUM = #{commentNum, jdbcType=NUMERIC}
+	</delete>
+	
+	<select id="get_selectOne" parameterType="Comment" resultType="Comment">
+		SELECT
+		    USER_ID as userId
+		    ,CONTENTS as contents
+			,CASE DATE_FORMAT(REG_DT, '%Y-%m-%d') WHEN DATE_FORMAT(NOW(), '%Y-%m-%d')
+				THEN DATE_FORMAT(REG_DT, '%H:%i:%s')
+            	ELSE DATE_FORMAT(REG_DT, '%Y-%m-%d') END AS regDt
+			,POST_NUM as postNum
+			,COMMENT_NUM as commentNum
+		FROM
+			PF_BOARD_COMMENT
+		WHERE
+		    POST_NUM = #{postNum, jdbcType=NUMERIC}
+		AND 
+			COMMENT_NUM = #{commentNum, jdbcType=NUMERIC}
+	</select>
+	 
+	<select id="do_save" parameterType="Comment">
+		INSERT INTO PF_BOARD_COMMENT (
+		    USER_ID
+		    ,CONTENTS
+			,REG_DT
+			,POST_NUM
+			,PW
+		) VALUES (
+		    #{userId, jdbcType=VARCHAR}
+		    ,#{contents, jdbcType=VARCHAR}
+		    ,NOW()
+		    ,#{postNum, jdbcType=NUMERIC}
+		    ,#{password, jdbcType=VARCHAR}
+		)
+	</select>
+	
+	<select id="get_retrieve" parameterType="Search" resultType="Comment">
+		SELECT T1.*, T2.*
+		FROM(
+		SELECT 
+		    T.USER_ID as userId
+		    ,T.CONTENTS as contents
+			,CASE DATE_FORMAT(T.REG_DT, '%Y-%m-%d') WHEN DATE_FORMAT(NOW(), '%Y-%m-%d')
+				THEN DATE_FORMAT(T.REG_DT, '%H:%i:%s')
+            	ELSE DATE_FORMAT(T.REG_DT, '%Y-%m-%d') END AS regDt
+			,T.RNUM as num
+			,T.POST_NUM as postNum
+			,T.COMMENT_NUM as commentNum
+		FROM(
+		    SELECT <![CDATA[@rownum]]>:=<![CDATA[@rownum]]>+1 AS RNUM, A.*
+		    FROM(
+		         SELECT *
+		         FROM PF_BOARD_COMMENT
+		         <include refid="search"/>
+		         ORDER BY REG_DT ASC
+		        )A
+		    )T
+		    WHERE CEIL(T.RNUM/ #{pageSize, jdbcType=VARCHAR} ) = #{pageNum, jdbcType=VARCHAR}
+		)T1 JOIN(
+		SELECT COUNT(*) as TotalCnt
+		FROM(
+			SELECT *
+		    FROM PF_BOARD_COMMENT
+		    <include refid="search"/>
+		    )B
+		)T2
+	</select>
+
+	<update id="do_update" parameterType="Comment">
+		UPDATE PF_BOARD_COMMENT
+		SET
+			USER_ID = #{userId, jdbcType=VARCHAR}
+			,CONTENTS = #{contents, jdbcType=VARCHAR}
+			,PW = #{password, jdbcType=VARCHAR}
+		WHERE POST_NUM = #{postNum, jdbcType=NUMERIC}
+		AND COMMENT_NUM = #{commentNum, jdbcType=NUMERIC}
+	</update>
+	
+	<select id="get_password" parameterType="Comment" resultType="Comment">
+		SELECT
+			PW as password
+		FROM
+		    PF_BOARD_COMMENT
+		WHERE
+		    POST_NUM = #{postNum, jdbcType=NUMERIC}
+		AND
+			COMMENT_NUM = #{commentNum, jdbcType=NUMERIC}
+	</select>
+
+</mapper>
